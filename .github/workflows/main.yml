@@ -29,46 +29,35 @@ jobs:
         name: Bandit-findings
         path: bandit-report.json
 
-  container_scan:
-    name: Run Trivy Scan
+  trivy_scan:
+    name: Run Trivy Docker Image Scan
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image
-      run: docker build -t pylint-app:latest .
+    - name: Build Docker Image
+      run: docker build -t my-app:latest .
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      id: trivy-scan
-      with:
-        image-ref: 'pylint-app:latest'
-        format: 'table'
-        exit-code: '0'  # Changed to 0 to ensure artifact upload even if vulnerabilities found
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-        output: ./trivy-results.txt
-
-    - name: Verify Trivy results file exists
+    - name: Install Trivy
       run: |
-        ls -la
-        if [ -f "./trivy-results.txt" ]; then
-          echo "Trivy results file exists"
-          cat ./trivy-results.txt
-        else
-          echo "Trivy results file NOT found"
-          exit 1
-        fi
+        sudo apt-get update
+        sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install trivy -y
 
-    - name: Upload Trivy Results
+    - name: Run Trivy Scan
+      run: trivy image --format json --output trivy-report.json my-app:latest
+
+    - name: Upload Trivy Report
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Trivy-findings
-        path: ./trivy-results.txt
+        path: trivy-report.json
