@@ -32,7 +32,6 @@ jobs:
   container_scan:
     name: Run Trivy Scan
     runs-on: ubuntu-latest
-    needs: sast_scan
     
     steps:
     - name: Checkout code
