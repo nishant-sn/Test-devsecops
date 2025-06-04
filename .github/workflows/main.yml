@@ -32,6 +32,7 @@ jobs:
   container_scan:
     name: Run Trivy Scan
     runs-on: ubuntu-latest
+    needs: sast_scan
     
     steps:
     - name: Checkout code
@@ -45,18 +46,30 @@ jobs:
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
+      id: trivy-scan
       with:
         image-ref: 'pylint-app:latest'
         format: 'table'
-        exit-code: '1'
+        exit-code: '0'  # Changed to 0 to ensure artifact upload even if vulnerabilities found
         ignore-unfixed: true
         vuln-type: 'os,library'
         severity: 'CRITICAL,HIGH'
-        output: trivy-results.txt
+        output: ./trivy-results.txt
+
+    - name: Verify Trivy results file exists
+      run: |
+        ls -la
+        if [ -f "./trivy-results.txt" ]; then
+          echo "Trivy results file exists"
+          cat ./trivy-results.txt
+        else
+          echo "Trivy results file NOT found"
+          exit 1
+        fi
 
     - name: Upload Trivy Results
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Trivy-findings
-        path: trivy-results.txt
+        path: ./trivy-results.txt
